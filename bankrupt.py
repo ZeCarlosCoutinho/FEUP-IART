@@ -9,7 +9,9 @@ from sklearn.cross_validation import train_test_split
 
 # Ler o ficheiro CSV
 dataset_path = './iart_dataset/1year.csv'
-raw_dataset = pd.read_csv(dataset_path)
+dataset_path2 = './iart_dataset/2year.csv'
+dataset_pathOversampled = './iart_dataset/allyearsUndersampled.csv'
+raw_dataset = pd.read_csv(dataset_pathOversampled)
 
 if raw_dataset is None:
     print("Error reading .csv file")
@@ -21,15 +23,15 @@ CLASS_NAME      = "class"
 ATTRIBUTES      = [i for i in raw_dataset.keys().tolist() if i != CLASS_NAME]
 NUM_EXAMPLES    = raw_dataset.shape[0]
 RANDOM_SEED     = 50
-TEST_SIZE       = 0.1
+TEST_SIZE       = 0.2
 TRAIN_SIZE      = int(NUM_EXAMPLES * (1 - TEST_SIZE))
-EPOCHS          = 100
+EPOCHS          = 8000
 DISPLAY_STEP    = 10
 n_input         = raw_dataset.shape[1] - 1
 n_output        = raw_dataset['class'].unique().shape[0] #o unique devolve um array de valores diferentes, e o shape[0] e o tamanho desse array
-n_hidden        = 200
+n_hidden        = 33
 
-learning_rate   = 0.5
+learning_rate   = 0.011
 batch_size      = 100
 
 # Carregar os dados
@@ -51,6 +53,7 @@ examples_train, examples_test, labels_train, labels_test = train_test_split(exam
                                                                             labels_onehot,
                                                                             test_size = TEST_SIZE,
                                                                             random_state=RANDOM_SEED)
+
 print("Data split into training and testing sets")
 
 
@@ -86,7 +89,8 @@ prediction = multilayer_perceptron(inputs, weights, biases)
 
 # Perda e optimizador da perda
 cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=labels))
-optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(cost)
+#optimizer = tf.train.GradientDescentOptimizer(learning_rate=learning_rate).minimize(cost)
+optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(cost)
 
 # Precisao
 correct_predictions = tf.equal(tf.argmax(prediction, 1), tf.argmax(labels, 1))
@@ -98,7 +102,10 @@ print("Network built")
 print("Training...")
 with tf.Session() as session:
     session.run(init)
-    for epoch in xrange(EPOCHS):
+    training_accuracy = 0;
+    epoch = 0;
+    while training_accuracy < 0.95:
+    #for epoch in xrange(EPOCHS):
             average_cost = 0;
             total_batch = int(examples_train.shape[0]/batch_size)
 
@@ -111,15 +118,17 @@ with tf.Session() as session:
                 session.run(optimizer, feed_dict={inputs: batch_examples, labels: batch_labels})
                 average_cost += session.run(cost, feed_dict={inputs: batch_examples, labels: batch_labels})/total_batch
             if epoch % DISPLAY_STEP == 0:
-                print("Epoch: %03d/%03d cost: %.9f" % (epoch, EPOCHS, average_cost))
+                #print("Epoch: %03d/%03d cost: %.9f" % (epoch, EPOCHS, average_cost))
+                print("Epoch: %03d cost: %.9f" % (epoch, average_cost))
                 training_accuracy = session.run(accuracy, feed_dict={inputs:batch_examples, labels:batch_labels})
                 print("Training accuracy: %.3f" % (training_accuracy))
-
+            epoch += 1
 
     print("Ended training.")
     print("Begin testing...")
 
     test_accuracy = session.run(accuracy, feed_dict={inputs: examples_test, labels: labels_test})
     print("Test accuracy: %.6f" % (test_accuracy))
+
     session.close()
     print("Session closed")
